@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.takumibaba.gyazo.android" >
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.READ_USER_DICTIONARY" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@drawable/ic_launcher"
+        android:label="@string/app_name"
+        android:theme="@style/AppTheme" >
+        <receiver
+            android:name="com.takumibaba.gyazo.android.BootReceiver"
+            android:enabled="true">
+            <intent-filter>
+                <action android:name="android.hardware.action.NEW_PICTURE" />
+                <data android:mimeType="image/*"/>
+                <!--<action android:name="android.intent.action.BOOT_COMPLETED" />-->
+            </intent-filter>
+        </receiver>
+
+        <service android:name="com.takumibaba.gyazo.android.GyazoService" />
+
+        <activity
+            android:name="com.takumibaba.gyazo.android.MainActivity"
+            android:label="@string/title_activity_main">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+    </application>
+
+</manifest>
