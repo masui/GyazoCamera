@@ -24,14 +24,24 @@ import com.android.volley.toolbox.BasicNetwork;
 import com.android.volley.toolbox.HttpClientStack;
 import com.android.volley.toolbox.Volley;
 
+import org.apache.http.Consts;
+import org.apache.http.HttpEntity;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
+import org.apache.http.client.ResponseHandler;
 import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.ContentType;
 import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.entity.mime.HttpMultipartMode;
 import org.apache.http.entity.mime.MultipartEntity;
+import org.apache.http.entity.mime.MultipartEntityBuilder;
 import org.apache.http.entity.mime.content.FileBody;
 import org.apache.http.entity.mime.content.InputStreamBody;
+import org.apache.http.entity.mime.content.StringBody;
 import org.apache.http.impl.client.DefaultHttpClient;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
@@ -41,6 +51,7 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
@@ -57,8 +68,9 @@ import java.util.Map;
  */
 public class GyazoService extends IntentService {
 
-//    private static final String api = "http://gyazo.com/upload.cgi";
-    private static final String api = "http://133.27.246.189:8000/upload";
+    private static final String gyazoAddress = "http://gyazo.com/upload.cgi";
+    private static final String lindaAddress = "http://linda.babascript.org";
+//    private static final String api = "http://133.27.246.189:8000/upload";
     private static final String id = "0554d8f0577059d2a8eda175d889ebf9";
     private static final String boundary = "----BOUNDARYBOUNDARY----";
     private static RequestQueue mQueue;
@@ -97,136 +109,76 @@ public class GyazoService extends IntentService {
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, buffer);
             data = buffer.toByteArray();
 
-            File f = new File(Environment.getExternalStorageDirectory().getPath()+"/gyazotest/");
-            if(!f.exists())
-                f.mkdir();
-            String name = f.getAbsolutePath()+"/gyazo-test.jpg";
-            FileOutputStream os = new FileOutputStream(name);
-            bitmap.compress(Bitmap.CompressFormat.PNG, 100, buffer);
-            os.flush();
-            os.close();
+//            File f = new File(Environment.getExternalStorageDirectory().getPath()+"/gyazotest/");
+//            if(!f.exists())
+//                f.mkdir();
+//            String name = f.getAbsolutePath()+"/gyazo-test.jpg";
+//            FileOutputStream os = new FileOutputStream(name);
+//            bitmap.compress(Bitmap.CompressFormat.PNG, 100, os);
+//            os.flush();
+//            os.close();
 
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
         }
-
-        GyazoRequest req = new GyazoRequest(Request.Method.POST, api, errorListener, data);
-        mQueue.add(req);
+        send(data);
+//        GyazoRequest req = new GyazoRequest(Request.Method.POST, api, errorListener, data, id);
+//        mQueue.add(req);
 
     }
 
     private void send(byte[] data){
-        URLConnection c = null;
-        try {
-            c = new URL(api).openConnection();
-            c.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
-            ((HttpURLConnection)c).setRequestMethod("POST");
-            c.setDoOutput(true);
-            c.connect();
+        HttpPost post = new HttpPost(gyazoAddress);
+        MultipartEntityBuilder builder = MultipartEntityBuilder.create();
+        builder.setMode(HttpMultipartMode.BROWSER_COMPATIBLE);
+        builder.setCharset(Consts.UTF_8);
 
-            OutputStream os = c.getOutputStream();
-            os.write(new String("--"+boundary+"\r\n").getBytes("UTF-8"));
-            os.write("Content-Disposition: form-data; name=\"id\" \r\n".getBytes());
-            os.write("\r\n".getBytes());
-            os.write(new String(id+"\r\n").getBytes());
-            os.write(new String("--"+boundary+"\r\n").getBytes());
-            os.write("Content-Disposition: form-data; name=\"imagedata\"; filename=\"imagedata\"".getBytes());
-            os.write("\r\n".getBytes());
-            os.write(data);
-            os.write("\r\n".getBytes());
-            os.write(new String("--"+boundary+"-- \r\n").getBytes());
-            os.close();
+        builder.addTextBody("id", id, ContentType.create("text/plain", Charset.defaultCharset()));
+        builder.addBinaryBody("imagedata", data);
 
-            InputStream is = c.getInputStream();
-
-
+        post.setEntity(builder.build());
+        HttpClient client = new DefaultHttpClient();
+        try{
+            client.execute(post, new ResponseHandler<Object>() {
+                @Override
+                public Object handleResponse(HttpResponse httpResponse) throws ClientProtocolException, IOException {
+                    StringBuilder stringBuilder = new StringBuilder();
+                    BufferedReader r = new BufferedReader(new InputStreamReader(httpResponse.getEntity().getContent()));
+                    String line = null;
+                    while ((line = r.readLine()) != null){
+                        stringBuilder.append(line);
+                    }
+                    String url = stringBuilder.toString();
+                    HttpPost post = new HttpPost(lindaAddress+"/baba");
+                    MultipartEntityBuilder b = MultipartEntityBuilder.create();
+                    b.setMode(HttpMultipartMode.BROWSER_COMPATIBLE);
+                    b.setCharset(Consts.UTF_8);
+                    JSONObject json = new JSONObject();
+                    try {
+                        json.put("service", "gyazo");
+                        json.put("url", url);
+                    } catch (JSONException e) {
+                        e.printStackTrace();
+                    }
+                    b.addPart("tuple", new StringBody(json.toString()));
+//                    b.addTextBody("tuple", json.toString());
+                    post.setEntity(b.build());
+                    new DefaultHttpClient().execute(post, new ResponseHandler<Object>() {
+                        @Override
+                        public Object handleResponse(HttpResponse httpResponse) throws ClientProtocolException, IOException {
+                            return null;
+                        }
+                    });
+                    return null;
+                }
+            });
+        } catch (ClientProtocolException e) {
+            e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
-
-    class GyazoRequest extends Request{
-        private Map<String, String> mParams = null;
-        private static final String boundary = "----BOUNDARYBOUNDARY----";
-        private byte[] mData = null;
-
-        public GyazoRequest(int method, String url, Response.ErrorListener listener, byte[] data) {
-            super(method, url, listener);
-            mData = data;
-        }
-
-        @Override
-        protected Response parseNetworkResponse(NetworkResponse response) {
-            return null;
-        }
-
-        @Override
-        protected void deliverResponse(Object response) {
-            Log.d("deliver", "response");
-        }
-
-        @Override
-        public int compareTo(Object another) {
-            return 0;
-        }
-
-        @Override
-        public Map<String, String> getParams(){
-            return mParams;
-        }
-
-        @Override
-        public Map<String, String> getHeaders() throws AuthFailureError {
-            Map<String, String> params = new HashMap<String, String>();
-            params.put("Content-Type", "multipart/form-data; boundary="+boundary);
-            return params;
-        }
-
-        @Override
-        public byte[] getBody() throws AuthFailureError{
-//              return mData;
-//            ByteArrayOutputStream s = new ByteArrayOutputStream();
-//            try {
-//                s.write(new String("--"+boundary+"\r\n").getBytes());
-//                s.write("Content-Disposition: form-data; name=\"id\" \r\n".getBytes());
-//                s.write("\r\n".getBytes());
-//                s.write(new String(id+"\r\n").getBytes());
-//                s.write(new String("--"+boundary+"\r\n").getBytes());
-//                s.write("Content-Disposition: form-data; name=\"imagedata\"; filename=\"imagedata\"".getBytes());
-//                s.write("\r\n".getBytes());
-//                s.write(mData);
-//                s.write("\r\n".getBytes());
-//                s.write(new String("--"+boundary+"-- \r\n").getBytes());
-//                s.flush();
-//            } catch (IOException e) {
-//                e.printStackTrace();
-//            }
-//            return s.toByteArray();
-//            byte[] a = s.toByteArray();
-
-            String d = null;
-            d = new String(mData, Charset.defaultCharset());
-            String body = "--"+boundary+"\r\n"
-                    +"Content-Disposition: form-data; name=\"id\" \r\n"
-                    +"\r\n"
-                    +id+"\r\n"
-                    +"--"+boundary+"\r\n"
-                    +"Content-Disposition: form-data; name=\"imagedata\"; filename=\"imagedata\" \r\n"
-                    +"\r\n"
-                    +d+"\r\n"
-                    +"--"+boundary+"-- \r\n";
-            Log.d("body", body);
-            return body.getBytes();
-        }
-    }
-
-    private Response.ErrorListener errorListener = new Response.ErrorListener() {
-        @Override
-        public void onErrorResponse(VolleyError error) {
-            error.printStackTrace();
-        }
-    };
 
 }
