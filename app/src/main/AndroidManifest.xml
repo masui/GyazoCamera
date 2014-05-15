@@ -12,12 +12,11 @@
         android:label="@string/app_name"
         android:theme="@style/AppTheme" >
         <receiver
-            android:name="com.takumibaba.gyazo.android.BootReceiver"
+            android:name="com.takumibaba.gyazo.android.NewPictureReceiver"
             android:enabled="true">
             <intent-filter>
                 <action android:name="android.hardware.action.NEW_PICTURE" />
                 <data android:mimeType="image/*"/>
-                <!--<action android:name="android.intent.action.BOOT_COMPLETED" />-->
             </intent-filter>
         </receiver>
 

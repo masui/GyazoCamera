@@ -1,80 +1,47 @@
 package com.takumibaba.gyazo.android;
 
 import android.app.IntentService;
-import android.content.ContentResolver;
 import android.content.Intent;
-import android.database.Cursor;
+import android.content.SharedPreferences;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
-import android.net.http.AndroidHttpClient;
-import android.os.Environment;
-import android.os.ParcelFileDescriptor;
-import android.provider.MediaStore;
+import android.preference.PreferenceManager;
 import android.util.Log;
 
-import com.android.volley.AuthFailureError;
-import com.android.volley.Network;
-import com.android.volley.NetworkResponse;
-import com.android.volley.Request;
-import com.android.volley.RequestQueue;
-import com.android.volley.Response;
-import com.android.volley.VolleyError;
-import com.android.volley.toolbox.BasicNetwork;
-import com.android.volley.toolbox.HttpClientStack;
-import com.android.volley.toolbox.Volley;
-
 import org.apache.http.Consts;
-import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.ResponseHandler;
+import org.apache.http.client.entity.UrlEncodedFormEntity;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.ContentType;
-import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.entity.mime.HttpMultipartMode;
-import org.apache.http.entity.mime.MultipartEntity;
 import org.apache.http.entity.mime.MultipartEntityBuilder;
-import org.apache.http.entity.mime.content.FileBody;
-import org.apache.http.entity.mime.content.InputStreamBody;
-import org.apache.http.entity.mime.content.StringBody;
 import org.apache.http.impl.client.DefaultHttpClient;
+import org.apache.http.message.BasicNameValuePair;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.URI;
-import java.net.URL;
-import java.net.URLConnection;
 import java.nio.charset.Charset;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Created by takumi on 2014/05/11.
  */
 public class GyazoService extends IntentService {
 
-    private static final String gyazoAddress = "http://gyazo.com/upload.cgi";
+    private static final String gyazoAddress = "http://upload.gyazo.com/upload.cgi";
     private static final String lindaAddress = "http://linda.babascript.org";
-//    private static final String api = "http://133.27.246.189:8000/upload";
-    private static final String id = "0554d8f0577059d2a8eda175d889ebf9";
-    private static final String boundary = "----BOUNDARYBOUNDARY----";
-    private static RequestQueue mQueue;
-    private byte[] mBuffer = null;
 
     /**
      * Creates an IntentService.  Invoked by your subclass's constructor.
@@ -91,57 +58,40 @@ public class GyazoService extends IntentService {
 
     @Override
     protected void onHandleIntent(Intent intent) {
-        Network network = new BasicNetwork(new HttpClientStack(AndroidHttpClient.newInstance("Gyazo-Android/2.0")));
-        mQueue = Volley.newRequestQueue(this.getApplicationContext());
         Uri uri = (Uri) intent.getParcelableExtra("data");
 
-        InputStream stream = null;
-        byte[] data = null;
-        Bitmap bitmap = null;
         try{
-            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
-            stream = getContentResolver().openInputStream(uri);
+            InputStream stream = getContentResolver().openInputStream(uri);
             BitmapFactory.Options options = new BitmapFactory.Options();
             options.inJustDecodeBounds = false;
-            bitmap = BitmapFactory.decodeStream(stream, null, options);
+            Bitmap bitmap = BitmapFactory.decodeStream(stream, null, options);
             stream.close();
 
+            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, buffer);
-            data = buffer.toByteArray();
-
-//            File f = new File(Environment.getExternalStorageDirectory().getPath()+"/gyazotest/");
-//            if(!f.exists())
-//                f.mkdir();
-//            String name = f.getAbsolutePath()+"/gyazo-test.jpg";
-//            FileOutputStream os = new FileOutputStream(name);
-//            bitmap.compress(Bitmap.CompressFormat.PNG, 100, os);
-//            os.flush();
-//            os.close();
+            send(buffer.toByteArray());
 
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
         }
-        send(data);
-//        GyazoRequest req = new GyazoRequest(Request.Method.POST, api, errorListener, data, id);
-//        mQueue.add(req);
 
     }
 
     private void send(byte[] data){
-        HttpPost post = new HttpPost(gyazoAddress);
+        SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
+        String gyazoid = pref.getString("gyazoID", "");
+        HttpPost gyazoPost = new HttpPost(gyazoAddress);
         MultipartEntityBuilder builder = MultipartEntityBuilder.create();
         builder.setMode(HttpMultipartMode.BROWSER_COMPATIBLE);
         builder.setCharset(Consts.UTF_8);
-
-        builder.addTextBody("id", id, ContentType.create("text/plain", Charset.defaultCharset()));
+        builder.addTextBody("id", gyazoid, ContentType.create("text/plain", Charset.defaultCharset()));
         builder.addBinaryBody("imagedata", data);
-
-        post.setEntity(builder.build());
+        gyazoPost.setEntity(builder.build());
         HttpClient client = new DefaultHttpClient();
         try{
-            client.execute(post, new ResponseHandler<Object>() {
+            client.execute(gyazoPost, new ResponseHandler<Object>() {
                 @Override
                 public Object handleResponse(HttpResponse httpResponse) throws ClientProtocolException, IOException {
                     StringBuilder stringBuilder = new StringBuilder();
@@ -151,31 +101,37 @@ public class GyazoService extends IntentService {
                         stringBuilder.append(line);
                     }
                     String url = stringBuilder.toString();
-                    HttpPost post = new HttpPost(lindaAddress+"/baba");
-                    MultipartEntityBuilder b = MultipartEntityBuilder.create();
-                    b.setMode(HttpMultipartMode.BROWSER_COMPATIBLE);
-                    b.setCharset(Consts.UTF_8);
-                    JSONObject json = new JSONObject();
-                    try {
-                        json.put("service", "gyazo");
-                        json.put("url", url);
-                    } catch (JSONException e) {
-                        e.printStackTrace();
-                    }
-                    b.addPart("tuple", new StringBody(json.toString()));
-//                    b.addTextBody("tuple", json.toString());
-                    post.setEntity(b.build());
-                    new DefaultHttpClient().execute(post, new ResponseHandler<Object>() {
-                        @Override
-                        public Object handleResponse(HttpResponse httpResponse) throws ClientProtocolException, IOException {
-                            return null;
-                        }
-                    });
-                    return null;
+                    sendTuple(url);
+                return null;
                 }
             });
         } catch (ClientProtocolException e) {
             e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void sendTuple(String url){
+        HttpPost lindaPost = new HttpPost(lindaAddress+"/baba");
+        JSONObject tuple = new JSONObject();
+        try {
+            tuple.put("service", "gyazo");
+            tuple.put("url", url);
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+        List<BasicNameValuePair> list = new ArrayList<BasicNameValuePair>();
+        list.add(new BasicNameValuePair("tuple", tuple.toString()));
+        UrlEncodedFormEntity entity = null;
+        try {
+            entity = new UrlEncodedFormEntity(list, "UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
+        lindaPost.setEntity(entity);
+        try {
+            new DefaultHttpClient().execute(lindaPost);
         } catch (IOException e) {
             e.printStackTrace();
         }

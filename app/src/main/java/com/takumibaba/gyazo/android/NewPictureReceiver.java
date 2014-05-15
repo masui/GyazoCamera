@@ -1,14 +1,8 @@
 package com.takumibaba.gyazo.android;
 
 import android.content.BroadcastReceiver;
-import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
-import android.database.Cursor;
-import android.graphics.Camera;
-import android.net.Uri;
-import android.provider.MediaStore;
-import android.util.Log;
 
 /**
  * Created by takumi on 2014/05/11.
