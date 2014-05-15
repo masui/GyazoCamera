@@ -31,7 +31,6 @@ android {
 dependencies {
     compile 'com.android.support:appcompat-v7:+'
     compile 'com.android.support:support-v4:18.0.0'
-    compile project(':modules:volley')
     compile files('libs/httpmime-4.3.3.jar')
     compile files('libs/httpcore-4.3.2.jar')
 }
