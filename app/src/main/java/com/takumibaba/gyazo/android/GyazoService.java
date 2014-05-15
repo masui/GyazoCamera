@@ -42,6 +42,8 @@ public class GyazoService extends IntentService {
 
     private static final String gyazoAddress = "http://upload.gyazo.com/upload.cgi";
     private static final String lindaAddress = "http://linda.babascript.org";
+    private String gyazoid = "";
+    private String lindaid = "";
 
     /**
      * Creates an IntentService.  Invoked by your subclass's constructor.
@@ -81,12 +83,13 @@ public class GyazoService extends IntentService {
 
     private void send(byte[] data){
         SharedPreferences pref = PreferenceManager.getDefaultSharedPreferences(getApplicationContext());
-        String gyazoid = pref.getString("gyazoID", "");
+        this.gyazoid = pref.getString("gyazoID", "");
+        this.lindaid = pref.getString("lindaID", "");
         HttpPost gyazoPost = new HttpPost(gyazoAddress);
         MultipartEntityBuilder builder = MultipartEntityBuilder.create();
         builder.setMode(HttpMultipartMode.BROWSER_COMPATIBLE);
         builder.setCharset(Consts.UTF_8);
-        builder.addTextBody("id", gyazoid, ContentType.create("text/plain", Charset.defaultCharset()));
+        builder.addTextBody("id", this.gyazoid, ContentType.create("text/plain", Charset.defaultCharset()));
         builder.addBinaryBody("imagedata", data);
         gyazoPost.setEntity(builder.build());
         HttpClient client = new DefaultHttpClient();
@@ -101,7 +104,8 @@ public class GyazoService extends IntentService {
                         stringBuilder.append(line);
                     }
                     String url = stringBuilder.toString();
-                    sendTuple(url);
+                    if(!lindaid.equals(""))
+                        sendTuple(url);
                 return null;
                 }
             });
@@ -113,7 +117,7 @@ public class GyazoService extends IntentService {
     }
 
     private void sendTuple(String url){
-        HttpPost lindaPost = new HttpPost(lindaAddress+"/baba");
+        HttpPost lindaPost = new HttpPost(lindaAddress+"/"+this.lindaid);
         JSONObject tuple = new JSONObject();
         try {
             tuple.put("service", "gyazo");
